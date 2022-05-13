@@ -1,9 +1,39 @@
 import EndlessSlider from "./endless-slider";
 
+const speed = 500;
 const slider = document.getElementById("endless-slider");
+const es = new EndlessSlider(slider, speed);
 
-const endlessSlider = new EndlessSlider(slider, {
-    clones: 1, // clones of all slides
-    speed: 100, // px per second
-    offset: window.innerWidth / 2, // starting point
+
+slider.addEventListener('mouseenter', (e) => {
+    console.log("enter");
+    stopSlider();
 });
+
+slider.addEventListener('mouseleave', (e) => {
+    console.log("leave");
+    resumeSlider();
+});
+
+
+function stopSlider() {
+    const interval = setInterval(() => {
+        es.speed -= 5;
+
+        if (es.speed <= 0) {
+            es.speed = 0;
+            clearInterval(interval);
+        }
+    }, 16);
+}
+
+function resumeSlider() {
+    const interval = setInterval(() => {
+        es.speed += 5;
+
+        if (es.speed >= speed) {
+            es.speed = speed;
+            clearInterval(interval);
+        }
+    }, 16);
+}

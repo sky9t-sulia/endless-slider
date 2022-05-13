@@ -1,102 +1,120 @@
 import EndlessSliderLoop from "./endless-loop";
 
 class EndlessSlider {
-    loop;
     slider;
     container;
-    clones;
     speed;
-    offset;
+    clones = 1;
     data = [];
+    resize = {
+        timeout: false,
+        delay: 250,
+    };
 
-    constructor(slider, props = { clones: 2, speed: 100, offset: 0 }) {
+    constructor(slider, speed) {
         this.slider = slider;
-        this.clones = props.clones;
-        this.speed = props.speed;
-        this.offset = props.offset;
-        this.onReady = props.onReady;
+        this.speed = speed;
         this.container = slider.querySelector(".slider-container");
         this.loop = new EndlessSliderLoop(120, () => {
             this.onFrame();
         });
 
-        this.build();
-        this.onResize();
-    }
+        this.buildSlider();
+        this.init();
 
-    buildClones() {
-        let raw = Array.from(this.container.querySelectorAll(".endless-slide"));
-        for (let i = 0; i <= this.clones; i++) {
-            raw.map((r) => {
-                let node = r;
-                if (i > 0) {
-                    node = r.cloneNode(true);
-                    this.container.appendChild(node);
-                }
-
-                this.data.push({
-                    x: this.offset,
-                    el: node,
-                    width: r.offsetWidth,
-                });
-            });
-        }
-    }
-
-    build() {
-        this.buildClones();
-
-        // Setup slider
-        this.data.forEach((slide, i) => {
-            if (i > 0) {
-                const prev = this.data[i - 1];
-                slide.x = prev.x + prev.width;
-                this.updateSlide(slide);
-            }
-
-            // dirty starting animation fix
-            setTimeout(() => {
-                slide.el.classList.add("slide-initialized");
-            }, 1);
+        window.addEventListener("resize", (e) => {
+            clearTimeout(this.resize.timeout);
+            this.resize.timeout = setTimeout(() => {
+                this.onResize();
+            }, this.resize.delay);
         });
-
         this.loop.start();
     }
 
-    updateSlide(slide) {
-        slide.el.style.cssText =
-            "transform: translate3d(" + slide.x + "px, 0, 0);";
+    buildSlider() {
+        const raw = Array.from(
+            this.container.querySelectorAll(".endless-slide")
+        );
+        this.makeClones(raw);
+        this.makeSlides(raw);
+        this.makeClones(raw);
+    }
+
+    makeClones(raw) {
+        raw.map((slide) => {
+            const node = slide.cloneNode(true);
+            node.classList.add("endless-clone");
+            this.data.push({
+                x: 0,
+                width: slide.offsetWidth,
+                node: node,
+            });
+        });
+    }
+
+    makeSlides(raw) {
+        raw.map((slide) => {
+            this.data.push({
+                x: 0,
+                width: slide.offsetWidth,
+                node: slide,
+            });
+        });
+    }
+
+    init() {
+        this.container.innerHTML = "";
+        this.data.forEach((slide, i) => {
+            if (i > 0) {
+                const prev = this.data[i - 1];
+                slide.x = prev.x + prev.node.offsetWidth;
+            }
+            slide.node.style.cssText =
+                "transform: translateX(" + slide.x + "px)";
+            this.container.appendChild(slide.node);
+        });
+    }
+
+    updateContainer(x, duration) {
+        this.container.style.cssText = "transform: translateX(" + x + "px)";
+
+        if (duration) {
+            this.container.style.cssText +=
+                "transition-duration: " + duration + "ms";
+
+            this.animating = true;
+        }
     }
 
     onResize() {
-        // when resize need to recalculate the width of slides 
-        window.addEventListener("resize", (e) => {
-            this.data.forEach((slide, i) => {
-                slide.width = slide.el.offsetWidth;
+        console.log("resize");
+        this.data.forEach((slide, i) => {
+            slide.width = slide.node.offsetWidth;
 
-                if (i > 0) {
-                    const prev = this.data[i - 1];
-                    slide.x = prev.x + prev.width;
-                }
-            });
+            if (i > 0) {
+                const prev = this.data[i - 1];
+                slide.x = prev.x + prev.width;
+            }
+            slide.node.style.cssText =
+                "transform: translateX(" + slide.x + "px)";
         });
     }
 
     onFrame() {
-        this.data.map((slide) => {
-            slide.x -= this.speed / 120;
+        const pos = this.container.getBoundingClientRect();
+        const current = this.data[0];
 
-            this.updateSlide(slide);
+        if (Math.abs(pos.left) > current.x + current.width) {
+            const slide = this.data.shift();
+            const last = this.data[this.data.length - 1];
 
-            if (slide.x < 0) {
-                if (Math.abs(slide.x) > slide.width) {
-                    const last = this.data[this.data.length - 1];
-                    slide.x = last.x + last.width;
-                    this.data.shift();
-                    this.data.push(slide);
-                }
-            }
-        });
+            slide.x = last.x + last.width;
+            slide.node.style.cssText =
+                "transform: translateX(" + slide.x + "px)";
+            this.data.push(slide);
+        }
+
+        this.updateContainer(pos.left - this.speed / 120, 25);
     }
 }
 
